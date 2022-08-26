@@ -2,14 +2,22 @@ mod call;
 mod call_result;
 
 fn main() {
-    dbg!(on_heartbeat(call::Heartbeat {}).to_response());
+    route(on_heartbeat);
 }
 
 // A handling handling an OCPP Heartbeat request.
-fn on_heartbeat(_: call::Heartbeat) -> call_result::Heartbeat {
+fn on_heartbeat(_: call::Heartbeat) -> impl ToResponse {
     call_result::Heartbeat {
         current_time: chrono::Utc::now(),
     }
+}
+
+
+fn route<F, O>(handler: F) where 
+    F: Fn(call::Heartbeat) -> O,
+    O: ToResponse
+    {
+        dbg!(handler(call::Heartbeat {}).to_response());
 }
 
 /// Trait to parse the data section of an OCPP message to struct.
