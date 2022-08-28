@@ -1,34 +1,51 @@
-use serde_json;
 mod call;
 mod call_result;
 
 fn main() {
-    route(|| println!("On heartbeat"))
+    route(on_heartbeat, r#"{}"#);
+    route(
+        on_boot_notification,
+        r#"{"reason":"LocalReset", "charging_station": {"model": "Optimus", "vendor_name": "Prime"}}"#,
+    );
 }
 
-trait Handler<In> {
-    fn call(self);
+fn on_heartbeat(Ocpp(request): Ocpp<call::Heartbeat>) {
+    dbg!(request);
+    println!("On hearbeat");
 }
 
-struct Request<T> {
-    body: T,
+fn on_boot_notification(Ocpp(payload): Ocpp<call::BootNotification>) {
+    dbg!(payload.charging_station);
+    println!("On BootNotification")
 }
 
-impl<F> Handler<()> for F
-where
-    F: FnOnce(),
-{
-    fn call(self) {
-        println!("Handler for FnOnce()");
-        self()
+struct Ocpp<T: FromRequest>(pub T);
+
+impl<T: FromRequest> FromRequest for Ocpp<T> {
+    fn from_request(req: &str) -> Ocpp<T> {
+        Ocpp(T::from_request(req))
     }
 }
 
-fn route<H, In>(handler: H)
+trait Handler<In> {
+    fn call(self, req: &str);
+}
+
+impl<F, T1> Handler<(T1,)> for F
+where
+    F: FnOnce(T1),
+    T1: FromRequest,
+{
+    fn call(self, req: &str) {
+        self(T1::from_request(req))
+    }
+}
+
+fn route<H, In>(handler: H, req: &str)
 where
     H: Handler<In>,
 {
-    handler.call();
+    handler.call(req)
 }
 
 trait FromRequest {
